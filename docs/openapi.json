@@ -1,0 +1,2376 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "אוצר הספרים – API",
+    "version": "1.0.0",
+    "description": "שרת למערכת אוצר הספרים של בית הכנסת הגדול, חניכי ישיבת חברון.\n\n**איך מתחברים כאן:** הריצו `POST /api/auth/login`, העתיקו את `token` מהתשובה, לחצו על **Authorize** למעלה והדביקו אותו (בלי המילה Bearer).\n\n**תפקידים:** `WORSHIPPER` – מתפלל, `GABBAI` – גבאי.\n\nכל שגיאה חוזרת במבנה `{ \"error\": { \"code\", \"message\", \"details?\" } }`."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "השרת הנוכחי"
+    }
+  ],
+  "tags": [
+    {
+      "name": "כללי"
+    },
+    {
+      "name": "התחברות"
+    },
+    {
+      "name": "ספרים"
+    },
+    {
+      "name": "הערות לגבאי"
+    },
+    {
+      "name": "משתמשים"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "VALIDATION_ERROR"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {}
+            }
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "WORSHIPPER",
+          "GABBAI"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "fullName",
+          "username",
+          "role",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 2,
+          "fullName": "יעקב כהן",
+          "username": "yaakov",
+          "role": "WORSHIPPER",
+          "createdAt": "2026-10-17T10:00:00.000Z"
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "user"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT לשליחה בכותרת Authorization"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "username",
+          "password"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60,
+            "example": "יעקב כהן"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[a-z0-9._]+$",
+            "description": "אותיות באנגלית, ספרות, נקודה וקו תחתון. אותיות גדולות הופכות לקטנות",
+            "example": "yaakov"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 72,
+            "example": "secret123"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "gabbai"
+          },
+          "password": {
+            "type": "string",
+            "example": "gabbai1234"
+          }
+        }
+      },
+      "Book": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "shelf",
+          "subject",
+          "author",
+          "quantity",
+          "addedAt",
+          "isNew",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shelf": {
+            "type": "string",
+            "nullable": true,
+            "description": "מספר מדף כטקסט: \"194\", \"ב 6\", \"42 א\", \"80-88\""
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true,
+            "description": "נושא חופשי"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "מתי נוסף לאוצר. null בספרים שיובאו מהקטלוג המודפס"
+          },
+          "isNew": {
+            "type": "boolean",
+            "description": "האם נוסף ב־30 הימים האחרונים"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 412,
+          "name": "אור הצפון",
+          "shelf": "194",
+          "subject": "מוסר",
+          "author": "הסבא מסלבודקה",
+          "quantity": 3,
+          "addedAt": null,
+          "isNew": false,
+          "createdAt": "2026-10-17T10:00:00.000Z",
+          "updatedAt": "2026-10-17T10:00:00.000Z"
+        }
+      },
+      "BookInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "שערי יושר"
+          },
+          "shelf": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30,
+            "example": "164"
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "example": "על הש\"ס"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120,
+            "example": "ר' שמעון שקופ"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999,
+            "default": 1,
+            "example": 2
+          }
+        }
+      },
+      "BookList": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Book"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "כמה רשומות יש בסך הכל"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "FeedbackType": {
+        "type": "string",
+        "enum": [
+          "MISPLACED",
+          "DAMAGED",
+          "NEW_BOOK_REQUEST",
+          "OTHER"
+        ],
+        "description": "MISPLACED – לא במקום · DAMAGED – פגום · NEW_BOOK_REQUEST – בקשה לספר חדש · OTHER – הערה אחרת"
+      },
+      "FeedbackStatus": {
+        "type": "string",
+        "enum": [
+          "NEW",
+          "IN_PROGRESS",
+          "REJECTED"
+        ],
+        "description": "NEW – חדש · IN_PROGRESS – בטיפול · REJECTED – נדחה. \"טופל\" = מחיקת ההערה"
+      },
+      "Feedback": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "bookId",
+          "bookTitle",
+          "message",
+          "userId",
+          "createdAt",
+          "updatedAt",
+          "user",
+          "book"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FeedbackStatus"
+          },
+          "bookId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "bookTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              }
+            }
+          },
+          "book": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "shelf": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        },
+        "example": {
+          "id": 7,
+          "type": "MISPLACED",
+          "status": "NEW",
+          "bookId": 412,
+          "bookTitle": "אור הצפון",
+          "message": "חיפשתי בכל המדף ולא מצאתי",
+          "userId": 2,
+          "createdAt": "2026-10-17T10:00:00.000Z",
+          "updatedAt": "2026-10-17T10:00:00.000Z",
+          "user": {
+            "id": 2,
+            "fullName": "יעקב כהן",
+            "username": "yaakov"
+          },
+          "book": {
+            "id": 412,
+            "name": "אור הצפון",
+            "shelf": "194"
+          }
+        }
+      },
+      "FeedbackInput": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "description": "ב־OTHER: חובה message, ואסור bookId/bookTitle. בשאר הסוגים: חובה bookId (ספר מהקטלוג) או bookTitle (שם חופשי).",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "bookId": {
+            "type": "integer",
+            "nullable": true,
+            "example": 412
+          },
+          "bookTitle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000,
+            "example": "חיפשתי בכל המדף ולא מצאתי"
+          }
+        }
+      },
+      "FeedbackList": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feedback"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "כמה רשומות יש בסך הכל"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "UserList": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "כמה רשומות יש בסך הכל"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "בדיקת בריאות השרת ומסד הנתונים",
+        "responses": {
+          "200": {
+            "description": "השרת ומסד הנתונים תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "database": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "status": "ok",
+                  "database": "ok",
+                  "time": "2026-10-17T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "אין חיבור למסד הנתונים"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "הרשמת מתפלל חדש (מחזיר טוקן – המתפלל מחובר מיד)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "נרשם בהצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "שם המשתמש תפוס",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "USERNAME_TAKEN",
+                    "message": "שם המשתמש תפוס, נסו שם אחר"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "יותר מדי ניסיונות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "TOO_MANY_REQUESTS",
+                    "message": "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "כניסה – מחזיר טוקן JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "נכנס בהצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "שם משתמש או סיסמה שגויים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "שם משתמש או סיסמה שגויים"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "יותר מדי ניסיונות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "TOO_MANY_REQUESTS",
+                    "message": "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "המשתמש המחובר כרגע",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "פרטי המשתמש",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                },
+                "example": {
+                  "user": {
+                    "id": 2,
+                    "fullName": "יעקב כהן",
+                    "username": "yaakov",
+                    "role": "WORSHIPPER",
+                    "createdAt": "2026-10-17T10:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/books": {
+      "get": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "חיפוש, סינון ומיון ספרים (פתוח לכולם)",
+        "description": "החיפוש סלחני: מתעלם מגרשיים, ניקוד, אותיות סופיות ומקפים. \"רמחל\" ימצא \"רמח״ל\". כמה מילים = כל המילים חייבות להופיע (בשם, בנושא, במחבר או במדף).",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "טקסט חופשי לחיפוש"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "חיפוש מתקדם: רק בשם הספר"
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "חיפוש מתקדם: רק בנושא"
+          },
+          {
+            "name": "author",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "חיפוש מתקדם: רק במחבר"
+          },
+          {
+            "name": "shelf",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "מדף מדויק, למשל 194 או \"ב 6\""
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "shelf",
+                "newest"
+              ],
+              "default": "name"
+            },
+            "description": "name – לפי שם · shelf – לפי מדף · newest – החדשים קודם"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "מספר עמוד"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "כמה רשומות בעמוד"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת ספרים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 412,
+                      "name": "אור הצפון",
+                      "shelf": "194",
+                      "subject": "מוסר",
+                      "author": "הסבא מסלבודקה",
+                      "quantity": 3,
+                      "addedAt": null,
+                      "isNew": false,
+                      "createdAt": "2026-10-17T10:00:00.000Z",
+                      "updatedAt": "2026-10-17T10:00:00.000Z"
+                    }
+                  ],
+                  "total": 1,
+                  "page": 1,
+                  "pageSize": 20,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "הוספת ספר (גבאי). ספר שכבר קיים – הכמות עולה",
+        "description": "ספר נחשב \"קיים\" כשיש לו אותו שם, אותו מחבר ואותו מדף. במקרה כזה לא נוצר ספר חדש: הכמות שנשלחה מתווספת לכמות הקיימת, והתשובה היא 200 עם merged: true.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הספר כבר היה קיים – הכמות עלתה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "book": {
+                      "$ref": "#/components/schemas/Book"
+                    },
+                    "merged": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "example": {
+                  "book": {
+                    "id": 412,
+                    "name": "אור הצפון",
+                    "shelf": "194",
+                    "subject": "מוסר",
+                    "author": "הסבא מסלבודקה",
+                    "quantity": 5,
+                    "addedAt": null,
+                    "isNew": false,
+                    "createdAt": "2026-10-17T10:00:00.000Z",
+                    "updatedAt": "2026-10-17T10:00:00.000Z"
+                  },
+                  "merged": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "נוצר ספר חדש",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "book": {
+                      "$ref": "#/components/schemas/Book"
+                    },
+                    "merged": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "example": {
+                  "book": {
+                    "id": 412,
+                    "name": "אור הצפון",
+                    "shelf": "194",
+                    "subject": "מוסר",
+                    "author": "הסבא מסלבודקה",
+                    "quantity": 3,
+                    "addedAt": "2026-10-17T10:00:00.000Z",
+                    "isNew": true,
+                    "createdAt": "2026-10-17T10:00:00.000Z",
+                    "updatedAt": "2026-10-17T10:00:00.000Z"
+                  },
+                  "merged": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/books/new": {
+      "get": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "ספרים שנוספו לאחרונה (ברירת מחדל: 30 יום)",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הספרים החדשים, החדש ביותר ראשון",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Book"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "days": 30,
+                  "items": [
+                    {
+                      "id": 412,
+                      "name": "אור הצפון",
+                      "shelf": "194",
+                      "subject": "מוסר",
+                      "author": "הסבא מסלבודקה",
+                      "quantity": 3,
+                      "addedAt": "2026-10-10T10:00:00.000Z",
+                      "isNew": true,
+                      "createdAt": "2026-10-17T10:00:00.000Z",
+                      "updatedAt": "2026-10-17T10:00:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/books/catalog": {
+      "get": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "הקטלוג המלא להדפסה, בלי דפדוף (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "shelf"
+              ],
+              "default": "name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "כל הספרים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Book"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "total": 1,
+                  "items": [
+                    {
+                      "id": 412,
+                      "name": "אור הצפון",
+                      "shelf": "194",
+                      "subject": "מוסר",
+                      "author": "הסבא מסלבודקה",
+                      "quantity": 3,
+                      "addedAt": null,
+                      "isNew": false,
+                      "createdAt": "2026-10-17T10:00:00.000Z",
+                      "updatedAt": "2026-10-17T10:00:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/books/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "מזהה"
+        }
+      ],
+      "get": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "ספר אחד, ואיתו הספרים שעל אותו מדף",
+        "responses": {
+          "200": {
+            "description": "הספר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "book": {
+                      "$ref": "#/components/schemas/Book"
+                    },
+                    "sameShelf": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Book"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "book": {
+                    "id": 412,
+                    "name": "אור הצפון",
+                    "shelf": "194",
+                    "subject": "מוסר",
+                    "author": "הסבא מסלבודקה",
+                    "quantity": 3,
+                    "addedAt": null,
+                    "isNew": false,
+                    "createdAt": "2026-10-17T10:00:00.000Z",
+                    "updatedAt": "2026-10-17T10:00:00.000Z"
+                  },
+                  "sameShelf": [
+                    {
+                      "id": 413,
+                      "name": "אור יהל",
+                      "shelf": "194",
+                      "subject": "מוסר",
+                      "author": "ר' ליב חסמן",
+                      "quantity": 1,
+                      "addedAt": null,
+                      "isNew": false,
+                      "createdAt": "2026-10-17T10:00:00.000Z",
+                      "updatedAt": "2026-10-17T10:00:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "הספר לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "הספר לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "עריכת ספר (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הספר עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "book": {
+                      "$ref": "#/components/schemas/Book"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "הספר לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "הספר לא נמצא"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "אחרי העריכה הספר יהיה זהה לספר אחר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "DUPLICATE_BOOK",
+                    "message": "כבר קיים ספר עם אותו שם, מחבר ומדף",
+                    "details": {
+                      "existingBookId": 413
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ספרים"
+        ],
+        "summary": "מחיקת ספר (גבאי). הערות על הספר נשארות",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחק"
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "הספר לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "הספר לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback": {
+      "post": {
+        "tags": [
+          "הערות לגבאי"
+        ],
+        "summary": "שליחת הערה לגבאי (כל משתמש מחובר)",
+        "description": "השולח נקבע לפי הטוקן בלבד. שדה userId בגוף הבקשה מתעלם.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackInput"
+              },
+              "examples": {
+                "misplaced": {
+                  "summary": "ספר לא במקום",
+                  "value": {
+                    "type": "MISPLACED",
+                    "bookId": 412,
+                    "message": "לא נמצא על המדף"
+                  }
+                },
+                "request": {
+                  "summary": "בקשה לספר חדש",
+                  "value": {
+                    "type": "NEW_BOOK_REQUEST",
+                    "bookTitle": "שערי יושר"
+                  }
+                },
+                "other": {
+                  "summary": "הערה אחרת",
+                  "value": {
+                    "type": "OTHER",
+                    "message": "כדאי להוסיף עוד ארון לספרי המועדים"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ההערה נשלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "feedback": {
+                      "$ref": "#/components/schemas/Feedback"
+                    }
+                  }
+                },
+                "example": {
+                  "feedback": {
+                    "id": 7,
+                    "type": "MISPLACED",
+                    "status": "NEW",
+                    "bookId": 412,
+                    "bookTitle": "אור הצפון",
+                    "message": "חיפשתי בכל המדף ולא מצאתי",
+                    "userId": 2,
+                    "createdAt": "2026-10-17T10:00:00.000Z",
+                    "updatedAt": "2026-10-17T10:00:00.000Z",
+                    "user": {
+                      "id": 2,
+                      "fullName": "יעקב כהן",
+                      "username": "yaakov"
+                    },
+                    "book": {
+                      "id": 412,
+                      "name": "אור הצפון",
+                      "shelf": "194"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "הספר שנבחר לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "הספר שנבחר לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "הערות לגבאי"
+        ],
+        "summary": "כל ההערות, החדשות ראשונות (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/FeedbackStatus"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/FeedbackType"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "מספר עמוד"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "כמה רשומות בעמוד"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת הערות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 7,
+                      "type": "MISPLACED",
+                      "status": "NEW",
+                      "bookId": 412,
+                      "bookTitle": "אור הצפון",
+                      "message": "חיפשתי בכל המדף ולא מצאתי",
+                      "userId": 2,
+                      "createdAt": "2026-10-17T10:00:00.000Z",
+                      "updatedAt": "2026-10-17T10:00:00.000Z",
+                      "user": {
+                        "id": 2,
+                        "fullName": "יעקב כהן",
+                        "username": "yaakov"
+                      },
+                      "book": {
+                        "id": 412,
+                        "name": "אור הצפון",
+                        "shelf": "194"
+                      }
+                    }
+                  ],
+                  "total": 1,
+                  "page": 1,
+                  "pageSize": 20,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/{id}/status": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "מזהה"
+        }
+      ],
+      "patch": {
+        "tags": [
+          "הערות לגבאי"
+        ],
+        "summary": "שינוי סטטוס הערה (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/FeedbackStatus"
+                  }
+                }
+              },
+              "example": {
+                "status": "IN_PROGRESS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "feedback": {
+                      "$ref": "#/components/schemas/Feedback"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ההערה לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "ההערה לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "מזהה"
+        }
+      ],
+      "delete": {
+        "tags": [
+          "הערות לגבאי"
+        ],
+        "summary": "\"טופל\" – מחיקת ההערה (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחקה"
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ההערה לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "ההערה לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "משתמשים"
+        ],
+        "summary": "רשימת המשתמשים הרשומים (גבאי)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "חיפוש בשם מלא או בשם משתמש"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "מספר עמוד"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "כמה רשומות בעמוד"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת משתמשים (בלי סיסמאות)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 2,
+                      "fullName": "יעקב כהן",
+                      "username": "yaakov",
+                      "role": "WORSHIPPER",
+                      "createdAt": "2026-10-17T10:00:00.000Z"
+                    }
+                  ],
+                  "total": 1,
+                  "page": 1,
+                  "pageSize": 20,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "הנתונים שנשלחו לא תקינים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו לא תקינים",
+                    "details": [
+                      {
+                        "field": "name",
+                        "message": "שם הספר הוא שדה חובה"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/role": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "מזהה"
+        }
+      ],
+      "patch": {
+        "tags": [
+          "משתמשים"
+        ],
+        "summary": "מינוי לגבאי או הורדה מגבאות (גבאי, לא על עצמו)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "$ref": "#/components/schemas/Role"
+                  }
+                }
+              },
+              "example": {
+                "role": "GABBAI"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התפקיד עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "נתונים לא תקינים, או ניסיון לשנות את התפקיד של עצמך",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "CANNOT_CHANGE_OWN_ROLE",
+                    "message": "אי אפשר לשנות את התפקיד של עצמך"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "לא מחובר, או שהטוקן לא תקין או שפג תוקפו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "חסר טוקן התחברות"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "מחובר, אבל אין הרשאה (נדרש גבאי)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "אין לך הרשאה לבצע פעולה זו"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "המשתמש לא נמצא",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_FOUND",
+                    "message": "המשתמש לא נמצא"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

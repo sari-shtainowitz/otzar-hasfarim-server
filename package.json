@@ -1,0 +1,56 @@
+{
+  "name": "otzar-hasfarim-backend",
+  "version": "1.0.0",
+  "description": "שרת למערכת אוצר הספרים – בית הכנסת הגדול, חניכי ישיבת חברון",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/src/server.js",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/src/server.js",
+    "start:render": "prisma migrate deploy && node dist/src/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "prisma validate && npm run typecheck && npm run build && npm test",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "import:catalog": "tsx prisma/import-catalog.ts",
+    "openapi:export": "tsx scripts/export-openapi.ts",
+    "postinstall": "prisma generate",
+    "demo:new-books": "tsx prisma/demo-new-books.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^10.1.1",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.15.0",
+    "@types/supertest": "^6.0.3",
+    "@types/swagger-ui-express": "^4.1.8",
+    "prisma": "^6.16.0",
+    "supertest": "^7.1.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

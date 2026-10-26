@@ -1,0 +1,27 @@
+# הגדרות פריסה ל־Render (Blueprint). ראי START-HERE.md, חלק ג.
+services:
+  - type: web
+    name: otzar-hasfarim-api
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    # migrate deploy מעדכן את מבנה מסד הנתונים לפני שהשרת עולה
+    startCommand: npm run start:render
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false # מדביקים ידנית את כתובת מסד הנתונים
+      - key: JWT_SECRET
+        generateValue: true # Render ייצור מפתח סודי אקראי
+      - key: JWT_EXPIRES_IN
+        value: 2h
+      - key: CORS_ORIGINS
+        sync: false # כתובת האתר בריאקט, למשל https://otzar.netlify.app
+      - key: AUTH_RATE_LIMIT
+        value: 20
+      - key: NEW_BOOKS_DAYS
+        value: 30

@@ -1,0 +1,88 @@
+// מבנה מסד הנתונים של אוצר הספרים.
+// שלוש טבלאות: משתמשים, ספרים, הערות לגבאי.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  WORSHIPPER // מתפלל
+  GABBAI // גבאי
+}
+
+enum FeedbackType {
+  MISPLACED // ספר לא במקום
+  DAMAGED // ספר פגום
+  NEW_BOOK_REQUEST // בקשה לספר חדש
+  OTHER // הערה אחרת
+}
+
+enum FeedbackStatus {
+  NEW // חדש
+  IN_PROGRESS // בטיפול
+  REJECTED // נדחה
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  fullName     String     @db.VarChar(60)
+  username     String     @unique @db.VarChar(30)
+  passwordHash String
+  role         Role       @default(WORSHIPPER)
+  createdAt    DateTime   @default(now())
+  feedback     Feedback[]
+
+  @@map("users")
+}
+
+model Book {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.VarChar(200)
+  shelf       String?    @db.VarChar(30)
+  shelfNumber Int?
+  subject     String?    @db.VarChar(200)
+  author      String?    @db.VarChar(120)
+  quantity    Int        @default(1)
+  /// תאריך ההוספה לאוצר. ריק בספרים שיובאו מהקטלוג המודפס, כדי שלא ייחשבו "חדשים".
+  addedAt     DateTime?
+  /// שם + נושא + מחבר + מדף בצורה מנורמלת, לחיפוש סלחני.
+  searchText  String
+  /// כל שדה בנפרד, מנורמל, לחיפוש מתקדם (תיבה לשם, לנושא ולמחבר).
+  nameSearch    String   @default("")
+  subjectSearch String   @default("")
+  authorSearch  String   @default("")
+  /// שם + מחבר + מדף מנורמלים. מזהה ספר שכבר קיים.
+  dedupeKey   String     @unique
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  feedback    Feedback[]
+
+  @@index([shelf])
+  @@index([shelfNumber])
+  @@index([addedAt])
+  @@index([name])
+  @@map("books")
+}
+
+model Feedback {
+  id        Int            @id @default(autoincrement())
+  type      FeedbackType
+  status    FeedbackStatus @default(NEW)
+  bookId    Int?
+  book      Book?          @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  bookTitle String?        @db.VarChar(200)
+  message   String?        @db.VarChar(1000)
+  userId    Int
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("feedback")
+}
